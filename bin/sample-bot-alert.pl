@@ -7,8 +7,9 @@ use strict;
 use WebService::Chatwork;
 use File::Touch;
 
-my $callstop_dir = '/home/patlite/bin/';
-my $callstop = '/home/patlite/bin/.callstop';
+my $control_dir = '/home/patlite/bin/';
+my $callstop   = '/home/patlite/bin/.callstop';
+my $callenable = '/home/patlite/bin/.callenable';
 
 my %p;
 ($p{access_token},$p{email},$p{password},$p{room_name}) = @ARGV;
@@ -17,8 +18,11 @@ WebService::Chatwork->new(%p)->watch($p{room_name},{
     'callstart' => sub {
 	my ($chatwork,$room,$log) = @_;
 	warn qq/callstart/;
-	if (-d $callstop_dir && -e $callstop) {
+	if (-d $control_dir && -e $callstop) {
 	    unlink $callstop;
+	}
+	if (-d $control_dir && -e $callenable) {
+	    unlink $callenable;
 	}
 	$chatwork->api(
 	    'post','/rooms/' . $room->{room_id} . '/messages',
@@ -28,7 +32,7 @@ WebService::Chatwork->new(%p)->watch($p{room_name},{
     'callstop'  => sub {
 	my ($chatwork,$room,$log) = @_;
 	warn qq/callstop/;
-	if (-d $callstop_dir) {
+	if (-d $control_dir) {
 	    touch $callstop;
 	}
 
