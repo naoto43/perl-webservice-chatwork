@@ -3,7 +3,8 @@
 #
 # chatwork-bot.pl TOKEN EMAIL PASSWORD ROOM_NAME
 #
-
+use strict;
+use WebService::Chatwork;
 my %p;
 ($p{access_token},$p{email},$p{password},$p{room_name}) = @ARGV;
 
