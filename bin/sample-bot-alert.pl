@@ -5,6 +5,11 @@
 #
 use strict;
 use WebService::Chatwork;
+use File::Touch;
+
+my $callstop_dir = '/home/patlite/bin/';
+my $callstop = '/home/patlite/bin/.callstop';
+
 my %p;
 ($p{access_token},$p{email},$p{password},$p{room_name}) = @ARGV;
 
@@ -12,6 +17,9 @@ WebService::Chatwork->new(%p)->watch($p{room_name},{
     'callstart' => sub {
 	my ($chatwork,$room,$log) = @_;
 	warn qq/callstart/;
+	if (-d $callstop_dir && -e $callstop) {
+	    unlink $callstop;
+	}
 	$chatwork->api(
 	    'post','/rooms/' . $room->{room_id} . '/messages',
 	    { body => '[START]' }
@@ -20,6 +28,10 @@ WebService::Chatwork->new(%p)->watch($p{room_name},{
     'callstop'  => sub {
 	my ($chatwork,$room,$log) = @_;
 	warn qq/callstop/;
+	if (-d $callstop_dir) {
+	    touch $callstop;
+	}
+
 	$chatwork->api(
 	    'post','/rooms/' . $room->{room_id} . '/messages',
 	    { body => '[STOP]' }
@@ -28,9 +40,16 @@ WebService::Chatwork->new(%p)->watch($p{room_name},{
     'callstatus'  => sub {
 	my ($chatwork,$room,$log) = @_;
 	warn qq/calltatus/;
+
+	my $messages = 'RUNNING';
+
+	if (-e $callstop) {
+	    $messages = 'DOWN';
+	}
+	
 	$chatwork->api(
 	    'post','/rooms/' . $room->{room_id} . '/messages',
-	    { body => '[STATUS]' }
+	    { body => '[STATUS] ' . $messages  }
 	);
     },
 });
