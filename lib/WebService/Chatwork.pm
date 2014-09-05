@@ -243,11 +243,18 @@ sub watch {
     my $room_name = shift or Carp::croak q/no room_name/;
     my $callbacks = shift;
 
+    if (! utf8::is_utf8($room_name)) {
+	utf8::decode($room_name);
+    }
+
     my $rooms = $self->api('get','/rooms');
     my ($room)  = grep { $_->{name} eq $room_name } @$rooms;
-    
-    Carp::croak q/no room: / . $room_name unless $room;
-    
+
+    unless ($room) {
+	utf8::encode($room_name);
+	Carp::croak q/no room: / . $room_name;
+    }
+
     my $cache;
 
     while (1) {
