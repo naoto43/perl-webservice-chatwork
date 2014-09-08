@@ -201,9 +201,10 @@ sub get_messages {
     #      }
     # };
     my $res  = decode_json($json);
-    if (ref $res eq 'HASH' && $res->{status}->{success}) {
+    if (ref $res eq 'HASH' && $res->{status}->{success} && ref $res->{result}->{chat_list}) {
 	return $res->{result}->{chat_list};
     }
+    return [];
 }
 
 sub api {
