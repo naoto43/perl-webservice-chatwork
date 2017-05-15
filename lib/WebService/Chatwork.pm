@@ -113,7 +113,7 @@ our $CHATWORK_LOGIN_URL       = 'https://www.chatwork.com/login.php?lang=ja';
 our $CHATWORK_LOGIN_FORM_NAME = 'login';
 our $CHATWORK_LOAD_CHAT_URL   = "https://www.chatwork.com/gateway.php?cmd=load_chat&myid=%s&_v=%s&_t=%s&ln=%s&room_id=%s&last_chat_id=0&first_chat_id=0&jump_to_chat_id=0&unread_num=0&desc=0&_=%s";
 
-our $CHATWORK_API_URL         = 'https://api.chatwork.com/v1';
+our $CHATWORK_API_URL         = 'https://api.chatwork.com/v2';
 
 our $DEBUG = 0;
 
@@ -142,8 +142,8 @@ sub new {
     my %web_params;
     ($web_params{ACCESS_TOKEN}) = $content =~ m/var +?ACCESS_TOKEN +?\= +?\'([0-9a-f]+)\'\;/;
     ($web_params{LANGUAGE})     = $content =~ m/var +?LANGUAGE +?\= +?\'([a-z]+)\'\;/;
-    ($web_params{myid})         = $content =~ m/var +?myid +?\= +?\'([0-9]+)\'\;/;
-    ($web_params{client_ver})   = $content =~ m/var +?client_ver +?\= +?\'([0-9a-z.]+)\'\;/;
+    ($web_params{myid})         = $content =~ m/var +?MYID +?\= +?\'([0-9]+)\'\;/;
+    ($web_params{client_ver})   = $content =~ m/var +?CLIENT_VER +?\= +?\'([0-9a-z.]+)\'\;/;
     
     Carp::croak q/login failed/  unless $web_params{ACCESS_TOKEN};
     
@@ -153,7 +153,6 @@ sub new {
 	_furl       => $furl,
 	_mech       => $mech,
     }, $class;
-    
     my $res = $self->api('get','/me');
     Carp::croak q/fail calling api/ unless $res;
 

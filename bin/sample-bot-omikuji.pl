@@ -5,6 +5,7 @@
 #
 
 use strict;
+use lib qw|/home/toona/src/webservice-chatwork/lib|;
 use WebService::Chatwork;
 use File::Touch;
 use utf8;
