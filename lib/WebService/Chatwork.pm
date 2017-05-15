@@ -122,7 +122,7 @@ sub new {
     my %params = @_;
     
     for (qw(email password access_token)) {
-	Carp::croak('no: ' . $_) unless defined $params{$_} ;
+        Carp::croak('no: ' . $_) unless defined $params{$_} ;
     }
     
     my $furl = Furl->new(timeout => 10);
@@ -131,11 +131,11 @@ sub new {
     $mech->get($CHATWORK_LOGIN_URL);
     
     $mech->submit_form(
-	form_name => $CHATWORK_LOGIN_FORM_NAME,
-	fields    => {
-	    email    => $params{email},
-	    password => $params{password}
-	}
+        form_name => $CHATWORK_LOGIN_FORM_NAME,
+        fields    => {
+            email    => $params{email},
+            password => $params{password}
+        }
     );
     
     my $content = $mech->content;
@@ -148,10 +148,10 @@ sub new {
     Carp::croak q/login failed/  unless $web_params{ACCESS_TOKEN};
     
     my $self =  bless { 
-	_params     => \%params,
-	_web_params => \%web_params,
-	_furl       => $furl,
-	_mech       => $mech,
+        _params     => \%params,
+        _web_params => \%web_params,
+        _furl       => $furl,
+        _mech       => $mech,
     }, $class;
     my $res = $self->api('get','/me');
     Carp::croak q/fail calling api/ unless $res;
@@ -171,8 +171,8 @@ sub get_messages {
     my $self = shift;
     my $room_id = shift or Carp::croak q/no room id/;
     my $load_chat_url = sprintf $CHATWORK_LOAD_CHAT_URL,
-    (map { $self->web_params->{$_} } qw(myid client_ver ACCESS_TOKEN LANGUAGE)),$room_id,time();
-     $self->mech->get($load_chat_url);
+        (map { $self->web_params->{$_} } qw(myid client_ver ACCESS_TOKEN LANGUAGE)),$room_id,time();
+    $self->mech->get($load_chat_url);
     my $json = $self->mech->content;
     # $VAR1 = {
     # 	'status' => {
@@ -201,7 +201,7 @@ sub get_messages {
     # };
     my $res  = decode_json($json);
     if (ref $res eq 'HASH' && $res->{status}->{success} && ref $res->{result}->{chat_list}) {
-	return $res->{result}->{chat_list};
+        return $res->{result}->{chat_list};
     }
     return [];
 }
@@ -211,14 +211,14 @@ sub api {
     my $method = shift or Carp::croak q/no method/;
     my $path   = shift or Carp::croak q/no path/;
 
-    my $param = shift;#  hashref
+    my $param = shift;          #  hashref
 
     if (!$method =~ /^(get|post|delete|put)$/) {
-	Carp::croak q/bad method/;
+        Carp::croak q/bad method/;
     }
 
     if ($method ne 'get') {
-	Carp::croak q/no param/ unless $param;
+        Carp::croak q/no param/ unless $param;
     }
 
     my $url = $CHATWORK_API_URL . $path;
@@ -226,13 +226,13 @@ sub api {
     my $res;
     
     if ($method =~ /^(get|delete)$/) {
-	$res = $self->furl->$method($url, [ 'X-ChatWorkToken' => $self->params->{access_token} ]);
+        $res = $self->furl->$method($url, [ 'X-ChatWorkToken' => $self->params->{access_token} ]);
     } else {
-	$res = $self->furl->$method($url, [ 'X-ChatWorkToken' => $self->params->{access_token} ], [ %$param ]);
+        $res = $self->furl->$method($url, [ 'X-ChatWorkToken' => $self->params->{access_token} ], [ %$param ]);
     }
 
     if ($res->is_success) {
-	return decode_json($res->content)
+        return decode_json($res->content)
     }
     return;
 }
@@ -244,41 +244,41 @@ sub watch {
     my $callbacks = shift;
 
     if (! utf8::is_utf8($room_name)) {
-	utf8::decode($room_name);
+        utf8::decode($room_name);
     }
 
     my $rooms = $self->api('get','/rooms');
     my ($room)  = grep { $_->{name} eq $room_name } @$rooms;
 
     unless ($room) {
-	utf8::encode($room_name);
-	Carp::croak q/no room: / . $room_name;
+        utf8::encode($room_name);
+        Carp::croak q/no room: / . $room_name;
     }
 
     my $cache;
 
     while (1) {
-	my $messages = $self->get_messages($room->{room_id});
-	my $time = time - 60;
-	for my $log (@$messages) {
+        my $messages = $self->get_messages($room->{room_id});
+        my $time = time - 60;
+        for my $log (@$messages) {
 
-	    if (my $sub = $callbacks->{all}) {
-		$sub->($self,$room,$log);
-	    }
+            if (my $sub = $callbacks->{all}) {
+                $sub->($self,$room,$log);
+            }
 
-	    warn $time . " : " . $log->{tm} . ' : ' . $log->{msg} if $DEBUG;
+            warn $time . " : " . $log->{tm} . ' : ' . $log->{msg} if $DEBUG;
 
-	    if ($time > $log->{tm} || $cache->{$log->{id}}) {
-		next;
-	    }
+            if ($time > $log->{tm} || $cache->{$log->{id}}) {
+                next;
+            }
 
-	    $cache->{$log->{id}} = 1;
+            $cache->{$log->{id}} = 1;
 	    
-	    if (my $sub = $callbacks->{$log->{msg}}) {
-		$sub->($self,$room,$log);
-	    }
-	}
-	sleep 10;
+            if (my $sub = $callbacks->{$log->{msg}}) {
+                $sub->($self,$room,$log);
+            }
+        }
+        sleep 10;
     }
 }
 
