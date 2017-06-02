@@ -5,6 +5,7 @@ use warnings;
 
 our $VERSION = "0.01";
 
+use Encode;
 
 =encoding utf-8
 
@@ -112,7 +113,7 @@ use Carp;
 our $CHATWORK_LOGIN_URL       = 'https://www.chatwork.com/login.php?lang=ja';
 our $CHATWORK_LOGIN_FORM_NAME = 'login';
 our $CHATWORK_LOAD_CHAT_URL   = "https://www.chatwork.com/gateway.php?cmd=load_chat&myid=%s&_v=%s&_t=%s&ln=%s&room_id=%s&last_chat_id=0&first_chat_id=0&jump_to_chat_id=0&unread_num=0&desc=0&_=%s";
-
+our $CHATWORK_DELETE_CHAT_URL = 'https://www.chatwork.com/gateway.php?cmd=delete_chat&myid=%s&_v=%s&_av=5&_t=%s&ln=%s&room_id=%s&chat_id=%s&_=%s';
 our $CHATWORK_API_URL         = 'https://api.chatwork.com/v2';
 
 our $DEBUG = 0;
@@ -199,11 +200,29 @@ sub get_messages {
     # 	     'description' => '[dtext:mychat_default_desc]'
     #      }
     # };
-    my $res  = decode_json($json);
+    my $res  = decode_json(encode('utf8',$json));
     if (ref $res eq 'HASH' && $res->{status}->{success} && ref $res->{result}->{chat_list}) {
         return $res->{result}->{chat_list};
     }
     return [];
+}
+
+
+sub delete_message {
+    my $self = shift;
+    my $room_id    = shift or Carp::croak q/no room id/;
+    my $message_id = shift or Carp::croak q/no message id/;
+    my $delete_chat_url = sprintf $CHATWORK_DELETE_CHAT_URL,
+        (map { $self->web_params->{$_} } qw(myid client_ver ACCESS_TOKEN LANGUAGE)),$room_id,$message_id,time();
+    $self->mech->get($delete_chat_url);
+    my $json = $self->mech->content;
+    my $res  = decode_json(encode('utf8',$json));
+    # $VAR1 = '{"status":{"success":false,"message":["\\u81ea\\u5206\\u306e\\u30e1\\u30c3\\u30bb\\u30fc\\u30b8\\u4ee5\\u5916\\u306f\\u7de8\\u96c6\\u3067\\u304d\\u307e\\u305b\\u3093"]},"result":[]}';
+    # $VAR1 = '{"status":{"success":true},"result":[]}';
+    if (ref $res eq 'HASH' && $res->{status}->{success}) {
+        return 1;
+    }
+    return 0;
 }
 
 sub api {
@@ -232,16 +251,30 @@ sub api {
     }
 
     if ($res->is_success) {
-        return decode_json($res->content)
+        return eval { decode_json(encode('utf8',$res->content)) };
     }
     return;
 }
 
+
 sub watch {
+    local $SIG{'INT'} = sub { exit 0 };
+
     my $self  = shift;
 
     my $room_name = shift or Carp::croak q/no room_name/;
     my $callbacks = shift;
+
+    my $get_opt   = shift;
+    
+    if (!defined $get_opt ) {
+        $get_opt = {
+            force => 0,
+            interval => 10,
+        };
+        
+    }
+
 
     if (! utf8::is_utf8($room_name)) {
         utf8::decode($room_name);
@@ -249,6 +282,9 @@ sub watch {
 
     my $rooms = $self->api('get','/rooms');
     my ($room)  = grep { $_->{name} eq $room_name } @$rooms;
+    unless ($room) { # room_id is also supported
+        ($room)  = grep { $_->{room_id} eq $room_name } @$rooms;
+    }
 
     unless ($room) {
         utf8::encode($room_name);
@@ -258,27 +294,34 @@ sub watch {
     my $cache;
 
     while (1) {
-        my $messages = $self->get_messages($room->{room_id});
-        my $time = time - 60;
+        my $messages = $self->api('get','/rooms/' . $room->{room_id} . '/messages?force=' . ($get_opt->{force}));
+
+        if (my $sub = $callbacks->{before_work}) {
+            $sub->($self,$room);
+        }
+
         for my $log (@$messages) {
 
             if (my $sub = $callbacks->{all}) {
                 $sub->($self,$room,$log);
             }
 
-            warn $time . " : " . $log->{tm} . ' : ' . $log->{msg} if $DEBUG;
+            warn $log->{send_time} . ' : ' . $log->{body} if $DEBUG;
 
-            if ($time > $log->{tm} || $cache->{$log->{id}}) {
-                next;
+            if (my $sub = $callbacks->{$log->{body}}) {
+                $sub->($self,$room,$log);
             }
 
-            $cache->{$log->{id}} = 1;
-	    
-            if (my $sub = $callbacks->{$log->{msg}}) {
+            if (my $sub = $callbacks->{filter}) {
                 $sub->($self,$room,$log);
             }
         }
-        sleep 10;
+
+        if (my $sub = $callbacks->{after_work}) {
+            $sub->($self,$room);
+        }
+
+        sleep $get_opt->{interval};
     }
 }
 
